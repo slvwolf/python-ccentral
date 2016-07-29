@@ -2,22 +2,11 @@ import json
 import logging
 import time
 import uuid
+import ccentral
 
 from etcd import Client, EtcdKeyNotFound, EtcdException
 
 _log = logging.getLogger("ccentral")
-
-
-class CCentralException(Exception):
-    pass
-
-
-class ConfigNotDefined(CCentralException):
-    pass
-
-
-class ConfigPullFailed(CCentralException):
-    pass
 
 
 class CCentral:
@@ -55,7 +44,7 @@ class CCentral:
             return self.__config[key]["value"]
         if key in self.__schema:
             return self.__schema[key]["default"]
-        raise ConfigNotDefined()
+        raise ccentral.ConfigNotDefined()
 
     def _push_client(self):
         try:
@@ -85,7 +74,7 @@ class CCentral:
         except EtcdException, e:
             _log.warn("Could not store schema: %s", e)
             if self.__last_check == 0 or self.fail_loudly:
-                raise ConfigPullFailed()
+                raise ccentral.ConfigPullFailed()
 
     def get_version(self):
         self.refresh()
