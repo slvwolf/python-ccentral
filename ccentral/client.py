@@ -8,17 +8,25 @@ from etcd import Client, EtcdKeyNotFound, EtcdException
 
 _log = logging.getLogger("ccentral")
 
+TTL_DAY = 24 * 60 * 60
 
 class CCentral:
 
-    LOCATION_SCHEMA = "/ccentral/services/%s/schema"
-    LOCATION_CONFIG = "/ccentral/services/%s/config"
-    LOCATION_CLIENTS = "/ccentral/services/%s/clients/%s"
+    LOCATION_SERVICE_BASE = "/ccentral/services/%s"
+    LOCATION_SCHEMA = LOCATION_SERVICE_BASE + "/schema"
+    LOCATION_CONFIG = LOCATION_SERVICE_BASE + "/config"
+    LOCATION_CLIENTS = LOCATION_SERVICE_BASE + "/clients/%s"
+    LOCATION_SERVICE_INFO = LOCATION_SERVICE_BASE + "/info/%s"
 
     def __init__(self, service_name, etcd="127.0.0.1:2379", update_interval=60):
         self.fail_loudly = False
-        self._host, self._port = etcd.split(":")
-        self.__etcd_client = Client(self._host, int(self._port))
+        self._host = "127.0.0.1"
+        self._port = 2379
+        if isinstance(etcd, str):
+            self._host, self._port = etcd.split(":")
+            self.__etcd_client = Client(self._host, int(self._port))
+        else:
+            self.__etcd_client = etcd
         self.service_name = service_name
         self.update_interval = update_interval
         self.__last_check = 0
@@ -26,6 +34,15 @@ class CCentral:
         self.__config = {}
         self.id = uuid.uuid4().get_hex()
         self.__version = ""
+
+    def add_service_info(self, key, data, ttl=TTL_DAY):
+        """
+        Simple service centric metric which will be visible from the WebUI
+        :param key: Key
+        :param data: Value (string)
+        :param ttl: Time to live in seconds
+        """
+        self.__etcd_client.set(CCentral.LOCATION_SERVICE_INFO % (self.service_name, key), data, ttl)
 
     def add_field(self, key, title, type="string", default="", description=""):
         self.__schema[key] = {"title": title, "type": type, "default": str(default), "description": description}
