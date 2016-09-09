@@ -32,6 +32,7 @@ class CCentral:
         self.__last_check = 0
         self.__schema = {}
         self.__config = {}
+        self.__client = {}
         self.id = uuid.uuid4().get_hex()
         self.__version = ""
 
@@ -43,6 +44,16 @@ class CCentral:
         :param ttl: Time to live in seconds
         """
         self.__etcd_client.set(CCentral.LOCATION_SERVICE_INFO % (self.service_name, key), data, ttl)
+
+    def add_instance_info(self, key, data):
+        """
+        Simple instance centric metric which will be visible from the WebUI
+        :param key: Key
+        :param data: Value (string)
+        :param ttl: Time to live in seconds
+        :return:
+        """
+        self.__client["_" + key] = data
 
     def add_field(self, key, title, type="string", default="", description=""):
         self.__schema[key] = {"title": title, "type": type, "default": str(default), "description": description}
@@ -65,17 +76,18 @@ class CCentral:
 
     def _push_client(self):
         try:
-            client = {"v": self.__version, "ts": time.time()}
-            self.__etcd_client.set(CCentral.LOCATION_CLIENTS % (self.service_name, self.id), json.dumps(client),
+            self.__client["v"] = self.__version
+            self.__client["ts"] = time.time()
+            self.__etcd_client.set(CCentral.LOCATION_CLIENTS % (self.service_name, self.id), json.dumps(self.__client),
                                    2*self.update_interval)
-        except EtcdException, e:
+        except EtcdException as e:
             # This is not really critical as the schema is only used by the WebUI
             _log.warn("Could not store client info: %s", e)
 
     def _push_schema(self):
         try:
             self.__etcd_client.set(CCentral.LOCATION_SCHEMA % self.service_name, json.dumps(self.__schema))
-        except EtcdException, e:
+        except EtcdException as e:
             # This is not really critical as the schema is only used by the WebUI
             _log.warn("Could not store schema: %s", e)
 
@@ -88,7 +100,7 @@ class CCentral:
             # No custom configuration has been set
             self.__config = {}
             self.__version = "defaults"
-        except EtcdException, e:
+        except EtcdException as e:
             _log.warn("Could not store schema: %s", e)
             if self.__last_check == 0 or self.fail_loudly:
                 raise ccentral.ConfigPullFailed()
