@@ -1,5 +1,6 @@
 import json
 import logging
+import threading
 import time
 import uuid
 import ccentral
@@ -9,6 +10,35 @@ from etcd import Client, EtcdKeyNotFound, EtcdException
 _log = logging.getLogger("ccentral")
 
 TTL_DAY = 24 * 60 * 60
+
+
+class IncCounter:
+
+    def __init__(self, now, interval=60, history=60):
+        self._interval = interval
+        self.__history_size = history
+        self.history = []
+        self.__lock = threading.Lock()
+        self.__c_value = 0
+        self.__c_time = now
+
+    def _tick(self, now):
+        while self.__c_time + self._interval < now:
+            self.history.append(self.__c_value)
+            self.__c_value = 0
+            self.__c_time += self._interval
+            while len(self.history) > self.__history_size:
+                self.history.pop(0)
+
+    def tick(self, now):
+        with self.__lock:
+            self._tick(now)
+
+    def inc(self, amount, now):
+        with self.__lock:
+            self._tick(now)
+            self.__c_value += amount
+
 
 class CCentral:
 
@@ -33,6 +63,7 @@ class CCentral:
         self.__schema = {}
         self.__config = {}
         self.__client = {}
+        self.__counters = {}
         self.id = uuid.uuid4().get_hex()
         self.__version = ""
 
@@ -50,21 +81,35 @@ class CCentral:
         Simple instance centric metric which will be visible from the WebUI
         :param key: Key
         :param data: Value (string)
-        :param ttl: Time to live in seconds
         :return:
         """
-        self.__client["_" + key] = data
+        self.__client["k_" + key] = data
+
+    def inc_instance_counter(self, key, amount=1, now=None):
+        """
+        Simple instance centric metric which will be visible from the WebUI
+        :param key: Key
+        :param data: Increment counter
+        :return:
+        """
+        if not now:
+            now = time.time()
+        if key not in self.__counters:
+            self.__counters[key] = IncCounter(now)
+        self.__counters[key].inc(amount, now)
 
     def add_field(self, key, title, type="string", default="", description=""):
         self.__schema[key] = {"title": title, "type": type, "default": str(default), "description": description}
 
-    def refresh(self, force=False):
+    def refresh(self, force=False, now=None):
+        if not now:
+            now = time.time()
         if self.__last_check == 0:
             self._push_schema()
-        if force or time.time() - self.__last_check > self.update_interval:
+        if force or now - self.__last_check > self.update_interval:
             self._pull_config()
-            self.__last_check = time.time()
-            self._push_client()
+            self.__last_check = now
+            self._push_client(now)
 
     def get(self, key):
         self.refresh()
@@ -74,10 +119,13 @@ class CCentral:
             return self.__schema[key]["default"]
         raise ccentral.ConfigNotDefined()
 
-    def _push_client(self):
+    def _push_client(self, now):
         try:
             self.__client["v"] = self.__version
-            self.__client["ts"] = time.time()
+            self.__client["ts"] = now
+            for key, c in self.__counters.items():
+                c.tick(now)
+                self.__client["c_" + key] = c.history
             self.__etcd_client.set(CCentral.LOCATION_CLIENTS % (self.service_name, self.id), json.dumps(self.__client),
                                    2*self.update_interval)
         except EtcdException as e:
