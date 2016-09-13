@@ -64,7 +64,7 @@ class CCentral:
         self.__config = {}
         self.__client = {}
         self.__counters = {}
-        self.id = uuid.uuid4().get_hex()
+        self.id = uuid.uuid4().hex
         self.__version = ""
 
     def add_service_info(self, key, data, ttl=TTL_DAY):
