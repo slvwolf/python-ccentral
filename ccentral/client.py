@@ -50,6 +50,7 @@ class CCentral:
 
     def __init__(self, service_name, etcd="127.0.0.1:2379", update_interval=60):
         self.fail_loudly = False
+        self.required_on_launch = False
         self._host = "127.0.0.1"
         self._port = 2379
         if isinstance(etcd, str):
@@ -150,7 +151,7 @@ class CCentral:
             self.__version = "defaults"
         except EtcdException as e:
             _log.warn("Could not store schema: %s", e)
-            if self.__last_check == 0 or self.fail_loudly:
+            if (self.__last_check == 0 or self.fail_loudly) and self.required_on_launch:
                 raise ccentral.ConfigPullFailed()
 
     def get_version(self):
