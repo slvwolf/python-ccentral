@@ -5,7 +5,7 @@ from setuptools import setup
 
 setup(
     name='CCentral',
-    version='0.2.2',
+    version='0.3.0',
     description='CCentral client library',
     author='Santtu Järvi',
     author_email='santtu.jarvi@finfur.net',
