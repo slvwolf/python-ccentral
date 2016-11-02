@@ -140,7 +140,7 @@ class CCentral:
     def _push_client(self, now):
         try:
             self.__client["v"] = self.__version
-            self.__client["cv"] = "python-%s"
+            self.__client["cv"] = "python-%s" % VERSION
             self.__client["lv"] = sys.version
             self.__client["av"] = API_VERSION
             self.__client["ts"] = now
