@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from etcd import Client
@@ -21,4 +22,5 @@ class TestClient(unittest.TestCase):
     def test_counters(self):
         self.client.inc_instance_counter("c", 10, now=1)
         self.client._push_client(now=70)
-        self.etcd.set.assert_called_with(ANY, '{"c_c": [10], "ts": 70, "v": ""}', ANY)
+        d = json.loads(self.etcd.set.call_args[0][1])
+        self.assertEquals([10], d["c_c"])

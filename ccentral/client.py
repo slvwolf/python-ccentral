@@ -1,8 +1,10 @@
 import json
 import logging
+import os
 import threading
 import time
 import uuid
+
 import ccentral
 
 from etcd import Client, EtcdKeyNotFound, EtcdException
@@ -10,7 +12,7 @@ from etcd import Client, EtcdKeyNotFound, EtcdException
 _log = logging.getLogger("ccentral")
 
 TTL_DAY = 24 * 60 * 60
-
+VERSION = "0.3.1 [L1]"
 
 class IncCounter:
 
@@ -49,6 +51,11 @@ class CCentral:
     LOCATION_SERVICE_INFO = LOCATION_SERVICE_BASE + "/info/%s"
 
     def __init__(self, service_name, etcd="127.0.0.1:2379", update_interval=60):
+        """
+        :type service_name: str
+        :type etcd: str|Client
+        :type update_interval: int
+        """
         self.fail_loudly = False
         self.required_on_launch = False
         self._host = "127.0.0.1"
@@ -71,6 +78,9 @@ class CCentral:
     def add_service_info(self, key, data, ttl=TTL_DAY):
         """
         Simple service centric metric which will be visible from the WebUI
+        :type key: str
+        :type data: str
+        :type ttl: int
         :param key: Key
         :param data: Value (string)
         :param ttl: Time to live in seconds
@@ -89,9 +99,13 @@ class CCentral:
     def inc_instance_counter(self, key, amount=1, now=None):
         """
         Simple instance centric metric which will be visible from the WebUI
+        :type key: str
+        :type amount: int
+        :type now: int
         :param key: Key
-        :param data: Increment counter
-        :return:
+        :param amount: Increment
+        :param now: Epoch time of the event (None for current)
+        :return: None
         """
         if not now:
             now = time.time()
@@ -123,7 +137,9 @@ class CCentral:
     def _push_client(self, now):
         try:
             self.__client["v"] = self.__version
+            self.__client["lv"] = VERSION
             self.__client["ts"] = now
+            self.__client["hostname"] = os.getenv("HOSTNAME", "N/A")
             for key, c in self.__counters.items():
                 c.tick(now)
                 self.__client["c_" + key] = c.history
