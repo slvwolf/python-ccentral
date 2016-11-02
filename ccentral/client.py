@@ -14,7 +14,8 @@ from etcd import Client, EtcdKeyNotFound, EtcdException
 _log = logging.getLogger("ccentral")
 
 TTL_DAY = 24 * 60 * 60
-VERSION = "0.3.1 [L1]"
+VERSION = "0.3.1"
+API_VERSION = "1"
 
 class IncCounter:
 
@@ -139,7 +140,9 @@ class CCentral:
     def _push_client(self, now):
         try:
             self.__client["v"] = self.__version
-            self.__client["cv"] = "python-%s (Python %s)" % (VERSION, sys.version.split(" ")[0])
+            self.__client["cv"] = "python-%s"
+            self.__client["lv"] = sys.version
+            self.__client["av"] = API_VERSION
             self.__client["ts"] = now
             self.__client["hostname"] = os.getenv("HOSTNAME", "N/A")
             for key, c in self.__counters.items():
