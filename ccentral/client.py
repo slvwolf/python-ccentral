@@ -17,6 +17,7 @@ TTL_DAY = 24 * 60 * 60
 VERSION = "0.3.2"
 API_VERSION = "1"
 
+
 class IncCounter:
 
     def __init__(self, now, interval=60, history=60):
@@ -75,6 +76,7 @@ class CCentral:
         self.__config = {}
         self.__client = {}
         self.__counters = {}
+        self.__start = time.time()
         self.id = uuid.uuid4().hex
         self.__version = ""
 
@@ -144,6 +146,8 @@ class CCentral:
             self.__client["lv"] = sys.version
             self.__client["av"] = API_VERSION
             self.__client["ts"] = now
+            self.__client["started"] = self.__start
+            self.__client["uinterval"] = self.update_interval
             self.__client["hostname"] = os.getenv("HOSTNAME", "N/A")
             for key, c in self.__counters.items():
                 c.tick(now)
