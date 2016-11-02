@@ -14,7 +14,7 @@ from etcd import Client, EtcdKeyNotFound, EtcdException
 _log = logging.getLogger("ccentral")
 
 TTL_DAY = 24 * 60 * 60
-VERSION = "0.3.1"
+VERSION = "0.3.2"
 API_VERSION = "1"
 
 class IncCounter:
