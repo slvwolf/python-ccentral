@@ -76,7 +76,7 @@ class CCentral:
         self.__config = {}
         self.__client = {}
         self.__counters = {}
-        self.__start = time.time()
+        self.__start = int(time.time())
         self.id = uuid.uuid4().hex
         self.__version = ""
 
