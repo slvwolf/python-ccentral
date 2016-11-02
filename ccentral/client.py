@@ -5,6 +5,8 @@ import threading
 import time
 import uuid
 
+import sys
+
 import ccentral
 
 from etcd import Client, EtcdKeyNotFound, EtcdException
@@ -137,7 +139,7 @@ class CCentral:
     def _push_client(self, now):
         try:
             self.__client["v"] = self.__version
-            self.__client["lv"] = VERSION
+            self.__client["cv"] = "python-%s (Python %s)" % (VERSION, sys.version.split(" ")[0])
             self.__client["ts"] = now
             self.__client["hostname"] = os.getenv("HOSTNAME", "N/A")
             for key, c in self.__counters.items():
