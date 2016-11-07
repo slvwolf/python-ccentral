@@ -2,11 +2,10 @@
 # coding=utf8
 
 from setuptools import setup
-from ccentral.client import VERSION
 
 setup(
     name='CCentral',
-    version=VERSION,
+    version="0.3.4",
     description='CCentral client library',
     author='Santtu Järvi',
     author_email='santtu.jarvi@finfur.net',
