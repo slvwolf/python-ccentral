@@ -71,6 +71,7 @@ class CCentral:
             self.__etcd_client = etcd
         self.service_name = service_name
         self.update_interval = update_interval
+        self._auto_refresh = True
         self.__last_check = 0
         self.__schema = {}
         self.__config = {}
@@ -91,6 +92,8 @@ class CCentral:
         :param ttl: Time to live in seconds
         """
         self.__etcd_client.set(CCentral.LOCATION_SERVICE_INFO % (self.service_name, key), data, ttl)
+        if self._auto_refresh:
+            self.refresh()
 
     def add_instance_info(self, key, data):
         """
@@ -100,6 +103,8 @@ class CCentral:
         :return:
         """
         self.__client["k_" + key] = data
+        if self._auto_refresh:
+            self.refresh()
 
     def inc_instance_counter(self, key, amount=1, now=None):
         """
@@ -117,6 +122,8 @@ class CCentral:
         if key not in self.__counters:
             self.__counters[key] = IncCounter(now)
         self.__counters[key].inc(amount, now)
+        if self._auto_refresh:
+            self.refresh(now=now)
 
     def add_field(self, key, title, type="string", default="", description=""):
         self.__schema[key] = {"title": title, "type": type, "default": str(default), "description": description}

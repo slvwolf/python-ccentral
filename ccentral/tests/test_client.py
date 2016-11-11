@@ -12,6 +12,7 @@ class TestClient(unittest.TestCase):
     def setUp(self):
         self.etcd = Mock(Client)
         self.client = CCentral("service", self.etcd)
+        self.client._auto_refresh = False
 
     """ Service info is updated """
     def test_update_service_info(self):
