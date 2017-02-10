@@ -128,16 +128,16 @@ class CCentral:
         :type key: str
         :param key: Provide own key used for grouping errors, if skipped will be SHA1 hash of the exception
         """
-        stack = traceback.format_exc().splitlines()
+        tb = traceback.format_exc().splitlines()
         key_hash = hashlib.sha1()
-        for k in stack:
+        for k in tb:
             key_hash.update(k.encode("utf8"))
         if not key:
             key = key_hash.hexdigest()
         if key in self.__errors:
             self.__errors[key]["count"] += 1
         else:
-            self.__errors[key] = {"count": 1, "stack": json.dumps(stack)}
+            self.__errors[key] = {"count": 1, "traceback": json.dumps(tb)}
 
     def add_instance_info(self, key, data):
         """
