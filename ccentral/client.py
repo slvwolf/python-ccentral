@@ -1,11 +1,14 @@
+import hashlib
 import json
 import logging
 import os
 import threading
 import time
 import uuid
-
+import traceback
 import sys
+
+import etcd
 
 import ccentral
 
@@ -14,6 +17,7 @@ from etcd import Client, EtcdKeyNotFound, EtcdException
 _log = logging.getLogger("ccentral")
 
 TTL_DAY = 24 * 60 * 60
+TTL_WEEK = TTL_DAY*7
 VERSION = "0.3.4"
 API_VERSION = "1"
 
@@ -46,6 +50,30 @@ class IncCounter:
             self.__c_value += amount
 
 
+class EtcdWrapper:
+
+    LOCATION_SERVICE_BASE = "/ccentral/services/%s"
+    LOCATION_ERRORS = LOCATION_SERVICE_BASE + "/errors/%s"
+
+    def __init__(self, etcd):
+        if isinstance(etcd, str):
+            self._host, self._port = etcd.split(":")
+            self.etcd = Client(self._host, int(self._port))
+        else:
+            self.etcd = etcd
+
+    def get_and_set_error(self, service, error_hash, error):
+        key = self.LOCATION_ERRORS % (service, error_hash)
+        record = error
+        try:
+            record = json.loads(self.etcd.get(key).value)
+            record["count"] += error["count"]
+        except etcd.EtcdKeyNotFound:
+            pass
+        record["last"] = int(time.time())
+        self.etcd.set(key, json.dump(error), TTL_WEEK)
+
+
 class CCentral:
 
     LOCATION_SERVICE_BASE = "/ccentral/services/%s"
@@ -64,11 +92,8 @@ class CCentral:
         self.required_on_launch = False
         self._host = "127.0.0.1"
         self._port = 2379
-        if isinstance(etcd, str):
-            self._host, self._port = etcd.split(":")
-            self.__etcd_client = Client(self._host, int(self._port))
-        else:
-            self.__etcd_client = etcd
+        self._e = EtcdWrapper(etcd)
+        self.__etcd_client = self._e.etcd
         self.service_name = service_name
         self.update_interval = update_interval
         self._auto_refresh = True
@@ -77,6 +102,7 @@ class CCentral:
         self.__config = {}
         self.__client = {}
         self.__counters = {}
+        self.__errors = {}
         self.__start = int(time.time())
         self.id = uuid.uuid4().hex
         self.__version = ""
@@ -94,6 +120,24 @@ class CCentral:
         self.__etcd_client.set(CCentral.LOCATION_SERVICE_INFO % (self.service_name, key), data, ttl)
         if self._auto_refresh:
             self.refresh()
+
+    def log_exception(self, key=None):
+        """
+        Log Exception
+
+        :type key: str
+        :param key: Provide own key used for grouping errors, if skipped will be SHA1 hash of the exception
+        """
+        stack = traceback.format_exc().splitlines()
+        key_hash = hashlib.sha1()
+        for k in stack:
+            key_hash.update(k.encode("utf8"))
+        if not key:
+            key = key_hash.hexdigest()
+        if key in self.__errors:
+            self.__errors[key]["count"] += 1
+        else:
+            self.__errors[key] = {"count": 1, "stack": json.dumps(stack)}
 
     def add_instance_info(self, key, data):
         """
@@ -161,6 +205,9 @@ class CCentral:
                 self.__client["c_" + key] = c.history
             self.__etcd_client.set(CCentral.LOCATION_CLIENTS % (self.service_name, self.id), json.dumps(self.__client),
                                    2*self.update_interval)
+            for key, error in self.__errors.items():
+                self._e.get_and_set_error(self.service_name, key, error)
+            self.__errors = {}
         except EtcdException as e:
             # This is not really critical as the schema is only used by the WebUI
             _log.warn("Could not store client info: %s", e)
