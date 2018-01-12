@@ -123,6 +123,7 @@ class CCentral:
         Reconnect to ETCD. This might be useful if you need to run forks of CCentral.
         """
         self._e.reconnect()
+        self.__etcd_client = self._e.etcd
 
     def add_service_info(self, key, data, ttl=TTL_DAY):
         """
