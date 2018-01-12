@@ -7,12 +7,19 @@ import time
 import uuid
 import traceback
 import sys
-
 import etcd
-
 import ccentral
 
 from etcd import Client, EtcdKeyNotFound, EtcdException
+
+PYFORMANCE_ENABLED = False
+
+try:
+    from pyformance.registry import Histogram
+    PYFORMANCE_ENABLED = True
+except ImportError:
+    pass
+
 
 _log = logging.getLogger("ccentral")
 
@@ -62,6 +69,9 @@ class EtcdWrapper:
         else:
             self.etcd = etcd
 
+    def reconnect(self):
+        self.etcd = Client(self.etcd.host, self.etcd.port)
+
     def get_and_set_error(self, service, error_hash, error):
         key = self.LOCATION_ERRORS % (service, error_hash)
         record = error
@@ -102,10 +112,17 @@ class CCentral:
         self.__config = {}
         self.__client = {}
         self.__counters = {}
+        self.__histograms = {}
         self.__errors = {}
         self.__start = int(time.time())
         self.id = uuid.uuid4().hex
         self.__version = ""
+
+    def reconnect(self):
+        """
+        Reconnect to ETCD. This might be useful if you need to run forks of CCentral.
+        """
+        self._e.reconnect()
 
     def add_service_info(self, key, data, ttl=TTL_DAY):
         """
@@ -149,6 +166,21 @@ class CCentral:
         self.__client["k_" + key] = data
         if self._auto_refresh:
             self.refresh()
+
+    def add_histogram(self, key, time_in_ms):
+        """
+        Add or update histogram
+        :type key: str
+        :type time_in_ms: int
+        :param key: Key
+        :param time_in_ms: Time in milliseconds
+        """
+        histogram = self.__histograms.get(key)  # type: Histogram
+        if histogram:
+            histogram.add(time_in_ms)
+        else:
+            histogram = Histogram()
+            self.__histograms[key] = histogram
 
     def inc_instance_counter(self, key, amount=1, now=None):
         """
