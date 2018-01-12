@@ -25,7 +25,7 @@ _log = logging.getLogger("ccentral")
 
 TTL_DAY = 24 * 60 * 60
 TTL_WEEK = TTL_DAY*7
-VERSION = "0.3.4"
+VERSION = "0.3.5"
 API_VERSION = "1"
 
 
