@@ -1,5 +1,25 @@
 # python-ccentral
 
-`Heavily work-in-progress - many things subject to change`
+Python client for CCentral configuration management. Client communicates
+directly with etcd so no additional dependencies to etcd is required.
+WebUI for convenient configuration management and stat info can be found
+from https://github.com/slvwolf/ccentral.
 
-Python client for CCentral configuration management
+## Example Usage
+    import ccentral
+
+    cc_client = ccentral.CCentral("my_service", "etcd-host:1234")
+    cc_client.add_field("config_a", "Dynamic configuration", default="test", description="Configuration string")
+
+    # Read configuration
+    print(cc.get("config_a"))
+
+    # Increment counters
+    cc.inc_instance_counter("run")
+
+    # Set text info
+    cc.add_instance_info("version", "1.2")
+
+    # Set text info (common in cluster)
+    cc.add_service_info("shared_key", "shared_value")
+
