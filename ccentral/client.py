@@ -1,3 +1,5 @@
+from typing import Dict
+from pyformance.registry import Histogram
 import hashlib
 import json
 import logging
@@ -10,22 +12,11 @@ import sys
 import etcd
 import ccentral
 
-from etcd import Client, EtcdKeyNotFound, EtcdException
-
-PYFORMANCE_ENABLED = False
-
-try:
-    from pyformance.registry import Histogram
-    PYFORMANCE_ENABLED = True
-except ImportError:
-    pass
-
-
 _log = logging.getLogger("ccentral")
 
 TTL_DAY = 24 * 60 * 60
 TTL_WEEK = TTL_DAY*7
-VERSION = "0.3.5"
+VERSION = "0.4.0"
 API_VERSION = "1"
 
 
@@ -62,15 +53,15 @@ class EtcdWrapper:
     LOCATION_SERVICE_BASE = "/ccentral/services/%s"
     LOCATION_ERRORS = LOCATION_SERVICE_BASE + "/errors/%s"
 
-    def __init__(self, etcd):
-        if isinstance(etcd, str):
-            self._host, self._port = etcd.split(":")
-            self.etcd = Client(self._host, int(self._port))
+    def __init__(self, etcd_c):
+        if isinstance(etcd_c, str):
+            self._host, self._port = etcd_c.split(":")
+            self.etcd = etcd.Client(self._host, int(self._port))
         else:
-            self.etcd = etcd
+            self.etcd = etcd_c
 
     def reconnect(self):
-        self.etcd = Client(self.etcd.host, self.etcd.port)
+        self.etcd = etcd.Client(self.etcd.host, self.etcd.port)
 
     def get_and_set_error(self, service, error_hash, error):
         key = self.LOCATION_ERRORS % (service, error_hash)
@@ -112,7 +103,7 @@ class CCentral:
         self.__config = {}
         self.__client = {}
         self.__counters = {}
-        self.__histograms = {}
+        self.__histograms = {}  # type: Dict[str, Histogram]
         self.__errors = {}
         self.__start = int(time.time())
         self.id = uuid.uuid4().hex
@@ -236,33 +227,40 @@ class CCentral:
             for key, c in self.__counters.items():
                 c.tick(now)
                 self.__client["c_" + key] = c.history
+            for key, h in self.__histograms.items():
+                snap = h.get_snapshot()
+                self.__client["h_" + key] = [snap.get_75th_percentile(),
+                                             snap.get_95th_percentile(),
+                                             snap.get_99th_percentile(),
+                                             snap.get_999th_percentile(),
+                                             snap.get_median()]
             self.__etcd_client.set(CCentral.LOCATION_CLIENTS % (self.service_name, self.id), json.dumps(self.__client),
                                    2*self.update_interval)
             for key, error in self.__errors.items():
                 self._e.get_and_set_error(self.service_name, key, error)
             self.__errors = {}
-        except EtcdException as e:
+        except etcd.EtcdException as e:
             # This is not really critical as the schema is only used by the WebUI
-            _log.warn("Could not store client info: %s", e)
+            _log.warning("Could not store client info: %s", e)
 
     def _push_schema(self):
         try:
             self.__etcd_client.set(CCentral.LOCATION_SCHEMA % self.service_name, json.dumps(self.__schema))
-        except EtcdException as e:
+        except etcd.EtcdException as e:
             # This is not really critical as the schema is only used by the WebUI
-            _log.warn("Could not store schema: %s", e)
+            _log.warning("Could not store schema: %s", e)
 
     def _pull_config(self):
         try:
             data = self.__etcd_client.get(CCentral.LOCATION_CONFIG % self.service_name).value
             self.__config = json.loads(data)
             self.__version = self.__config.get("v", {}).get("value", "unknown")
-        except EtcdKeyNotFound:
+        except etcd.EtcdKeyNotFound:
             # No custom configuration has been set
             self.__config = {}
             self.__version = "defaults"
-        except EtcdException as e:
-            _log.warn("Could not store schema: %s", e)
+        except etcd.EtcdException as e:
+            _log.warning("Could not store schema: %s", e)
             if (self.__last_check == 0 or self.fail_loudly) and self.required_on_launch:
                 raise ccentral.ConfigPullFailed()
 

@@ -39,3 +39,10 @@ class TestClient(unittest.TestCase):
         self.client.refresh(force=True)
         print(self.ewrap.get_and_set_error.method_calls)
         self.ewrap.get_and_set_error.assert_called_once()
+
+    """ Histogram data is included in client payload """
+    def test_histogram_reporting(self):
+        self.client.add_histogram("name", 100)
+        self.client._push_client(now=70)
+        d = json.loads(self.etcd.set.call_args[0][1])
+        self.assertEquals([0, 0, 0, 0, 0], d["h_name"])
