@@ -8,8 +8,8 @@ from https://github.com/slvwolf/ccentral.
 ## Example Usage
     import ccentral
 
-    cc_client = ccentral.CCentral("my_service", "etcd-host:1234")
-    cc_client.add_field("config_a", "Dynamic configuration", default="test", description="Configuration string")
+    cc = ccentral.CCentral("my_service", "etcd-host:1234")
+    cc.add_field("config_a", "Dynamic configuration", default="test", description="Configuration string")
 
     # Read configuration
     print(cc.get("config_a"))
