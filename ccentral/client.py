@@ -49,7 +49,6 @@ class IncCounter:
 
 
 class EtcdWrapper:
-
     LOCATION_SERVICE_BASE = "/ccentral/services/%s"
     LOCATION_ERRORS = LOCATION_SERVICE_BASE + "/errors/%s"
 
@@ -72,11 +71,10 @@ class EtcdWrapper:
         except etcd.EtcdKeyNotFound:
             pass
         record["last"] = int(time.time())
-        self.etcd.set(key, json.dump(error), TTL_WEEK)
+        self.etcd.set(key, json.dumps(error), TTL_WEEK)
 
 
 class CCentral:
-
     LOCATION_SERVICE_BASE = "/ccentral/services/%s"
     LOCATION_SCHEMA = LOCATION_SERVICE_BASE + "/schema"
     LOCATION_CONFIG = LOCATION_SERVICE_BASE + "/config"
@@ -224,16 +222,16 @@ class CCentral:
             self.__client["started"] = self.__start
             self.__client["uinterval"] = self.update_interval
             self.__client["hostname"] = os.getenv("HOSTNAME", "N/A")
+            for key, c in self.__histograms.items():
+                snap = c.get_snapshot()
+                data = [snap.get_75th_percentile(),
+                        snap.get_95th_percentile(),
+                        snap.get_99th_percentile(),
+                        snap.get_median()]
+                self.__client["h_" + key] = data
             for key, c in self.__counters.items():
                 c.tick(now)
                 self.__client["c_" + key] = c.history
-            for key, h in self.__histograms.items():
-                snap = h.get_snapshot()
-                self.__client["h_" + key] = [snap.get_75th_percentile(),
-                                             snap.get_95th_percentile(),
-                                             snap.get_99th_percentile(),
-                                             snap.get_999th_percentile(),
-                                             snap.get_median()]
             self.__etcd_client.set(CCentral.LOCATION_CLIENTS % (self.service_name, self.id), json.dumps(self.__client),
                                    2*self.update_interval)
             for key, error in self.__errors.items():

@@ -1,5 +1,4 @@
 import time
-
 import ccentral
 
 c = ccentral.Client("example_service")
