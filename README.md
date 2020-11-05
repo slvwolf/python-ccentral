@@ -1,8 +1,9 @@
 # python-ccentral
 
 Python client for CCentral configuration management. Client communicates
-directly with etcd so no additional dependencies to etcd is required.
-WebUI for convenient configuration management and stat info can be found
+directly with etcd.
+
+WebUI for configuration management and monitoring metrics can be found
 from https://github.com/slvwolf/ccentral.
 
 ## Example Usage
