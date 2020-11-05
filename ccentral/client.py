@@ -11,6 +11,7 @@ import traceback
 import sys
 import etcd
 import ccentral
+import re
 
 _log = logging.getLogger("ccentral")
 
@@ -18,6 +19,9 @@ TTL_DAY = 24 * 60 * 60
 TTL_WEEK = TTL_DAY*7
 VERSION = "0.4.1"
 API_VERSION = "1"
+
+# based on https://stackoverflow.com/a/9531189
+RE_HOST_PORT = r'(?P<http>[[https://]*)?(?P<host>[^:/ ]+).?(?P<port>[0-9]*).*'
 
 
 class IncCounter:
@@ -54,8 +58,13 @@ class EtcdWrapper:
 
     def __init__(self, etcd_c):
         if isinstance(etcd_c, str):
-            self._host, self._port = etcd_c.split(":")
-            self.etcd = etcd.Client(self._host, int(self._port))
+            addrs = ()
+            # etcd addresses might come in form of
+            # "host:port,host2:port2" or "host:port" with or without 'http'
+            for addr in etcd_c.split(','):
+                m = re.search(RE_HOST_PORT, addr)
+                addrs += ((m.group('host'), int(m.group('port'))),)
+            self.etcd = etcd.Client(addrs, allow_reconnect=True)
         else:
             self.etcd = etcd_c
 
